@@ -74,13 +74,13 @@ int main(int argc, char *argv[]) {
   if (argc == 1) {
     /* --- Génerateur --- */
     srand((unsigned)time(NULL));
-    G = initialiser_reseau(G_nbr_couches, BATCH_SIZE, Gtypes,
-                                  G_dim_poids, G_dim_entree, G_prof);
+    G = initialiser_reseau(G_nbr_couches, BATCH_SIZE, Gtypes, G_dim_poids,
+                           G_dim_entree, G_prof);
     init_poids_biais(G);
 
     /* --- Discriminateur --- */
-    D = initialiser_reseau(D_nbr_couches, BATCH_SIZE, Dtypes,
-                                  D_dim_poids, D_dim_entree, D_prof);
+    D = initialiser_reseau(D_nbr_couches, BATCH_SIZE, Dtypes, D_dim_poids,
+                           D_dim_entree, D_prof);
     init_poids_biais(D);
   } else {
     if (argc != 4 && argc != 3) {
@@ -100,6 +100,7 @@ int main(int argc, char *argv[]) {
           }
           buffer[j] = '\0';
           saut_fichier = int_of_string(buffer);
+          printf("%d", saut_fichier);
           break;
         }
         if (i > 0 && p[i] == '=' && p[i - 1] == 'g') {
@@ -124,8 +125,9 @@ int main(int argc, char *argv[]) {
           D = charger_reseau(ch_detecteur);
           break;
         } else if (i > 0 && p[i + 1] == '\0') {
-          printf("paramètres incorrectes:\nexemple: t=0 (temps) d=detecteur.cnn "
-                 "t=generateur.cnn\n");
+          printf(
+              "paramètres incorrectes:\nexemple: t=0 (temps) d=detecteur.cnn "
+              "t=generateur.cnn\n");
           return 1;
         }
       }
@@ -134,8 +136,6 @@ int main(int argc, char *argv[]) {
 
   afficher_reseau(D);
   afficher_reseau(G);
-  *D.t = saut_fichier;
-  *G.t = saut_fichier;
 
   const float ALPHA = 0.001f;
   const float BETA1 = 0.5f;
@@ -172,12 +172,14 @@ int main(int argc, char *argv[]) {
   }
 
   for (int i = 0; i < saut_fichier; ++i) {
-    lire_ligne_mnist(trainf, NULL);
+    int l = lire_ligne_mnist(trainf, NULL);
+    // fprintf(graphf, "%d - %zu\n", l, i+1);
+    fflush(graphf);
   }
 
-
   for (size_t epoch = 0; epoch < NB_EPOCHS; ++epoch) {
-    rewind(trainf);
+    if (epoch > 0)
+      rewind(trainf);
     size_t batch_idx = 0, total = saut_fichier, b_total = 0, b_correct = 0;
     int label = 0;
     int t = 0;
@@ -198,17 +200,22 @@ int main(int argc, char *argv[]) {
             b_correct += 1;
           }
         }
-        printf("%zu - score D:%%%f\n", total, (float)b_correct / b_total * 100);
-        fprintf(graphf,"%zu - score D:%%%f\n", total, (float)b_correct / b_total * 100);
+        printf("%zu - score D:%%%f\n", total,
+               ((float)b_correct) / b_total * 100);
+        fprintf(graphf, "%zu - score D:%%%f\n", total,
+                (float)b_correct / b_total * 100);
+        fflush(graphf);
 
         b_total = 0;
         b_correct = 0;
 
         retropropagation(D, ALPHA, BETA1, BETA2, (float **)y_D, NULL);
+        ecrire_delta(D, "delta");
         batch_idx = 0; /* nouveau mini‑batch */
         if (t >= t_gen * BATCH_SIZE) {
+          t = 0;
+
           c++;
-          // printf("G\n");
           if (c % 10 == 0) {
             c = 0;
             sauver_reseau(D, ch_detecteur);
@@ -219,7 +226,7 @@ int main(int argc, char *argv[]) {
             generer_images(ch_generateur, 5, prefix);
           }
           D.gel = true;
-          t = 0;
+
           for (int k = 0; k < t_gen * 2; k++) {
             for (int n = 0; n < BATCH_SIZE; n++) {
               generer_bruit(G.c[0].z, n);
