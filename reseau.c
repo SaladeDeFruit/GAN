@@ -1088,6 +1088,44 @@ void sauver_reseau(reseau r, const char *nom_fichier) {
     }
   }
   fclose(f);
+
+  // adam
+  for (size_t l = 0; l < r.nbr_couches; l++) {
+    couche *cur = &r.c[l];
+    if (cur->type == COUCHE_CONV || cur->type == COUCHE_TCONV) {
+      size_t k = cur->poids.dim[3];
+      fprintf(f, "\n");
+      for (size_t c_out = 0; c_out < cur->poids.dim[0]; ++c_out) {
+        for (size_t c_in = 0; c_in < cur->poids.dim[1]; ++c_in) {
+          for (size_t u = 0; u < k; u++) {
+            fprintf(f, "\n");
+            for (size_t v = 0; v < k; v++) {
+              fprintf(f, "%f ", t_get(cur->m_p, c_out, c_in, u, v));
+              fprintf(f, "%f ", t_get(cur->v_p, c_out, c_in, u, v));
+            }
+          }
+          fprintf(f, "\n");
+        }
+        fprintf(f, "%f ", t_get(cur->m_b, 0, 0, 0, c_out));
+        fprintf(f, "%f ", t_get(cur->v_b, 0, 0, 0, c_out));
+      }
+    }
+    if (cur->type == COUCHE_DENSE) {
+      fprintf(f, "\n");
+      for (size_t i = 0; i < cur->poids.dim[2]; ++i) {
+        for (size_t j = 0; j < cur->poids.dim[3]; ++j) {
+          fprintf(f, "%f ", t_get(cur->m_p, 0, 0, i, j));
+          fprintf(f, "%f ", t_get(cur->v_p, 0, 0, i, j));
+        }
+        fprintf(f, "\n");
+      }
+      for (size_t i = 0; i < cur->poids.dim[2]; ++i) {
+        fprintf(f, "%f ", t_get(cur->m_b, 0, 0, 0, i));
+        fprintf(f, "%f ", t_get(cur->v_b, 0, 0, 0, i));
+      }
+    }
+  }
+  fclose(f);
 }
 
 reseau charger_reseau(const char *nom_fichier) {
@@ -1137,28 +1175,7 @@ reseau charger_reseau(const char *nom_fichier) {
   for (size_t l = 0; l < r.nbr_couches; l++) {
     couche *cur = &r.c[l];
 
-    if (cur->type == COUCHE_CONV) {
-      fscanf(f, "\n");
-      size_t k = cur->poids.dim[3];
-      for (size_t c_out = 0; c_out < cur->poids.dim[0]; ++c_out) {
-        for (size_t c_in = 0; c_in < cur->poids.dim[1]; ++c_in) {
-          for (size_t u = 0; u < k; u++) {
-            fscanf(f, "\n");
-            for (size_t v = 0; v < k; v++) {
-              float val;
-              fscanf(f, "%f", &val);
-              t_set(cur->poids, c_out, c_in, u, v, val);
-            }
-          }
-          fscanf(f, "\n");
-        }
-        float val;
-        fscanf(f, "%f", &val);
-        t_set(cur->biais, 0, 0, 0, c_out, val);
-      }
-    }
-
-    if (cur->type == COUCHE_TCONV) {
+    if (cur->type == COUCHE_CONV || cur->type == COUCHE_TCONV) {
       fscanf(f, "\n");
       size_t k = cur->poids.dim[3];
       for (size_t c_out = 0; c_out < cur->poids.dim[0]; ++c_out) {
@@ -1193,6 +1210,54 @@ reseau charger_reseau(const char *nom_fichier) {
         float val;
         fscanf(f, "%f", &val);
         t_set(cur->biais, 0, 0, 0, i, val);
+      }
+    }
+  }
+  fclose(f);
+  return r;
+
+  // ADAM:
+  for (size_t l = 0; l < r.nbr_couches; l++) {
+    couche *cur = &r.c[l];
+
+    if (cur->type == COUCHE_CONV || cur->type == COUCHE_TCONV) {
+      fscanf(f, "\n");
+      size_t k = cur->poids.dim[3];
+      for (size_t c_out = 0; c_out < cur->poids.dim[0]; ++c_out) {
+        for (size_t c_in = 0; c_in < cur->poids.dim[1]; ++c_in) {
+          for (size_t u = 0; u < k; u++) {
+            fscanf(f, "\n");
+            for (size_t v = 0; v < k; v++) {
+              float val;
+              fscanf(f, "%f", &val);
+              t_set(cur->m_p, c_out, c_in, u, v, val);
+              t_set(cur->v_p, c_out, c_in, u, v, val);
+            }
+          }
+          fscanf(f, "\n");
+        }
+        float val;
+        fscanf(f, "%f", &val);
+        t_set(cur->m_b, 0, 0, 0, c_out, val);
+        t_set(cur->v_b, 0, 0, 0, c_out, val);
+      }
+    }
+    if (cur->type == COUCHE_DENSE) {
+      fscanf(f, "\n");
+      for (size_t i = 0; i < cur->poids.dim[2]; ++i) {
+        for (size_t j = 0; j < cur->poids.dim[3]; ++j) {
+          float val;
+          fscanf(f, "%f", &val);
+          t_set(cur->m_p, 0, 0, i, j, val);
+          t_set(cur->v_p, 0, 0, i, j, val);
+        }
+        fscanf(f, "\n");
+      }
+      for (size_t i = 0; i < cur->poids.dim[2]; ++i) {
+        float val;
+        fscanf(f, "%f", &val);
+        t_set(cur->m_b, 0, 0, 0, i, val);
+        t_set(cur->v_b, 0, 0, 0, i, val);
       }
     }
   }
