@@ -47,38 +47,98 @@ size_t D_dim_entree[2] = {28, 28};
 /* canaux (prof) — cf. tableau plus haut */
 size_t D_prof[D_COUCHES] = {1, 64, 64, 128, 128, 128, 128, 1, 1, 1, 1};
 
-/* -----------------------------------------------------------
- *  Affiche la topologie du réseau sous forme de petit tableau
- *  Exemple :
- *      Id | Type          |   z (N,C,H,W)   |   Poids (Cout,Cin,H,W)
- *      ------------------------------------------------------------
- *       0 | ENTREE        |  (64,1,100,1)
- *       1 | DENSE         |  (64,1,256,1)   |  (1,1,256,100)
- *       2 | ACT_RELU      |  (64,1,256,1)
- *       … etc.
- * ----------------------------------------------------------- */
+int int_of_string(char *s) {
+  int i = 0;
+  int sum = 0;
+  int n = 0;
+  while (s[n] != '\0')
+    n++;
+  while (s[i] != '\0') {
+    sum += ((int)s[i] - 48) * pow(10, n - i - 1);
+    i++;
+  }
+  return sum;
+}
 
 #define TAILLE_IMAGE 28
 #define NB_EPOCHS 2
 
-int main() {
-  /* --- Génerateur --- */
-  srand((unsigned)time(NULL));
-  reseau G = initialiser_reseau(G_nbr_couches, BATCH_SIZE, Gtypes, G_dim_poids,
-                                G_dim_entree, G_prof);
-  init_poids_biais(G);
-  // reseau G = charger_reseau("generateur.cnn");
-  // afficher_reseau(G);
-  /* --- Discriminateur --- */
-  reseau D = initialiser_reseau(D_nbr_couches, BATCH_SIZE, Dtypes, D_dim_poids,
-                                D_dim_entree, D_prof);
-  init_poids_biais(D);
+int main(int argc, char *argv[]) {
+  reseau D;
+  reseau G;
 
-  // reseau D = charger_reseau("detecteur.cnn");
-  // afficher_reseau(D);
+  char *ch_detecteur = "detecteur.cnn";
+  char *ch_generateur = "generateur.cnn";
+
+  int saut_fichier = 0;
+  if (argc == 1) {
+    /* --- Génerateur --- */
+    srand((unsigned)time(NULL));
+    G = initialiser_reseau(G_nbr_couches, BATCH_SIZE, Gtypes,
+                                  G_dim_poids, G_dim_entree, G_prof);
+    init_poids_biais(G);
+
+    /* --- Discriminateur --- */
+    D = initialiser_reseau(D_nbr_couches, BATCH_SIZE, Dtypes,
+                                  D_dim_poids, D_dim_entree, D_prof);
+    init_poids_biais(D);
+  } else {
+    if (argc != 4 && argc != 3) {
+      printf("paramètres incorrectes:\nexemple: t=0 (temps) d=detecteur.cnn "
+             "g=generateur.cnn\n");
+      return 1;
+    }
+    while (--argc > 0) {
+      char *p = argv[argc];
+      char buffer[50];
+      for (int i = 0; p[i] != '\0'; ++i) {
+        if (i > 0 && p[i] == '=' && p[i - 1] == 't') {
+          int j = 0;
+          while (p[j + i + 1] != '\0' && j < 51) {
+            buffer[j] = p[j + i + 1];
+            j++;
+          }
+          buffer[j] = '\0';
+          saut_fichier = int_of_string(buffer);
+          break;
+        }
+        if (i > 0 && p[i] == '=' && p[i - 1] == 'g') {
+          int j = 0;
+          while (p[j + i + 1] != '\0' && j < 51) {
+            buffer[j] = p[j + i + 1];
+            j++;
+          }
+          buffer[j] = '\0';
+          ch_generateur = buffer;
+          G = charger_reseau(ch_generateur);
+          break;
+        }
+        if (i > 0 && p[i] == '=' && p[i - 1] == 'd') {
+          int j = 0;
+          while (p[j + i + 1] != '\0' && j < 51) {
+            buffer[j] = p[j + i + 1];
+            j++;
+          }
+          buffer[j] = '\0';
+          ch_detecteur = buffer;
+          D = charger_reseau(ch_detecteur);
+          break;
+        } else if (i > 0 && p[i + 1] == '\0') {
+          printf("paramètres incorrectes:\nexemple: t=0 (temps) d=detecteur.cnn "
+                 "t=generateur.cnn\n");
+          return 1;
+        }
+      }
+    }
+  }
+
+  afficher_reseau(D);
+  afficher_reseau(G);
+  *D.t = saut_fichier;
+  *G.t = saut_fichier;
 
   const float ALPHA = 0.001f;
-  const float BETA1 = 0.9f;
+  const float BETA1 = 0.5f;
   const float BETA2 = 0.999f;
 
   //   1)  // ----- phase Discriminateur -----
@@ -100,7 +160,7 @@ int main() {
   float batch_pixels[TAILLE_IMAGE * TAILLE_IMAGE];
 
   /* ------------------- Entraînement ------------------------*/
-  int saut_fichier = 1267;
+
   FILE *trainf = fopen(MNIST_T, "r");
 
   if (!trainf) {
@@ -114,6 +174,7 @@ int main() {
   for (int i = 0; i < saut_fichier; ++i) {
     lire_ligne_mnist(trainf, NULL);
   }
+
 
   for (size_t epoch = 0; epoch < NB_EPOCHS; ++epoch) {
     rewind(trainf);
@@ -138,6 +199,8 @@ int main() {
           }
         }
         printf("%zu - score D:%%%f\n", total, (float)b_correct / b_total * 100);
+        fprintf(graphf,"%zu - score D:%%%f\n", total, (float)b_correct / b_total * 100);
+
         b_total = 0;
         b_correct = 0;
 
@@ -148,12 +211,12 @@ int main() {
           // printf("G\n");
           if (c % 10 == 0) {
             c = 0;
-            sauver_reseau(D, "detecteur.cnn");
-            sauver_reseau(G, "generateur.cnn");
+            sauver_reseau(D, ch_detecteur);
+            sauver_reseau(G, ch_generateur);
             char prefix[25];
             snprintf(prefix, sizeof prefix, "./generation/%zu", total);
 
-            generer_images("generateur.cnn", 5, prefix);
+            generer_images(ch_generateur, 5, prefix);
           }
           D.gel = true;
           t = 0;
@@ -214,7 +277,7 @@ int main() {
     printf("\nFin epoch %zu – %zu images traitées\n", epoch + 1, total);
   }
   fclose(trainf);
-
+  fclose(graphf);
   for (int i = 0; i < BATCH_SIZE; i++) {
     free(y_D[i]);
     free(y[i]);
