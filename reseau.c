@@ -1087,7 +1087,6 @@ void sauver_reseau(reseau r, const char *nom_fichier) {
       }
     }
   }
-  fclose(f);
 
   // adam
   for (size_t l = 0; l < r.nbr_couches; l++) {
@@ -1213,8 +1212,6 @@ reseau charger_reseau(const char *nom_fichier) {
       }
     }
   }
-  fclose(f);
-  return r;
 
   // ADAM:
   for (size_t l = 0; l < r.nbr_couches; l++) {
