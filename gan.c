@@ -67,8 +67,8 @@ int main(int argc, char *argv[]) {
   reseau D;
   reseau G;
 
-  char *ch_detecteur = "detecteur.cnn";
-  char *ch_generateur = "generateur.cnn";
+  char *ch_detecteur = "detecteur1.cnn";
+  char *ch_generateur = "generateur1.cnn";
 
   int saut_fichier = 0;
   if (argc == 1) {
@@ -161,7 +161,7 @@ int main(int argc, char *argv[]) {
 
   /* ------------------- Entraînement ------------------------*/
 
-  FILE *trainf = fopen(MNIST_T, "r");
+  FILE *trainf = fopen(MNIST_T1, "r");
 
   if (!trainf) {
     perror("Ouverture train");
@@ -173,8 +173,6 @@ int main(int argc, char *argv[]) {
 
   for (int i = 0; i < saut_fichier; ++i) {
     int l = lire_ligne_mnist(trainf, NULL);
-    // fprintf(graphf, "%d - %zu\n", l, i+1);
-    fflush(graphf);
   }
 
   for (size_t epoch = 0; epoch < NB_EPOCHS; ++epoch) {
@@ -210,7 +208,6 @@ int main(int argc, char *argv[]) {
         b_correct = 0;
 
         retropropagation(D, ALPHA, BETA1, BETA2, (float **)y_D, NULL);
-        ecrire_delta(D, "delta");
         batch_idx = 0; /* nouveau mini‑batch */
         if (t >= t_gen * BATCH_SIZE) {
           t = 0;
@@ -218,22 +215,23 @@ int main(int argc, char *argv[]) {
           c++;
           if (c % 10 == 0) {
             c = 0;
-            sauver_reseau(D, ch_detecteur);
-            sauver_reseau(G, ch_generateur);
             char prefix[25];
-            snprintf(prefix, sizeof prefix, "./generation/%zu", total);
+            snprintf(prefix, sizeof prefix, "./generation1/%zu", total);
 
             generer_images(ch_generateur, 5, prefix);
+            sauver_reseau(D,ch_detecteur);
+            sauver_reseau(G,ch_generateur);
           }
           D.gel = true;
 
-          for (int k = 0; k < t_gen * 2; k++) {
+          for (int k = 0; k < t_gen*2; k++) {
             for (int n = 0; n < BATCH_SIZE; n++) {
               generer_bruit(G.c[0].z, n);
               y[n][0] = 0.9;
             }
 
             propagation_avant(G, -1);
+
 
             // on place l'image obtenue dans D:
             for (int n = 0; n < BATCH_SIZE; n++) {
@@ -244,6 +242,7 @@ int main(int argc, char *argv[]) {
                 }
               }
             }
+            
 
             propagation_avant(D, -1);
             retropropagation(D, ALPHA, BETA1, BETA2, y, NULL);
