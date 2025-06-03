@@ -72,7 +72,38 @@ void generer_images(const char *modele, size_t nb_imgs, const char *prefix) {
   liberer_reseau(G);
 }
 
-// int main() {
-//   generer_images("generateur.cnn", 10, "./generation/img");
-//   return 0;
-// }
+void generer_fondu(const char *modele, size_t nb_imgs, const char *prefix) {
+  float e1[100];
+  float e2[100];
+
+  srand(time(NULL));
+  for (int i = 0; i < 100; i++) {
+    e1[i] = 2.f * ((float)rand() / RAND_MAX) - 1.f;
+    e2[i] = 2.f * ((float)rand() / RAND_MAX) - 1.f;
+  }
+
+  reseau G = charger_reseau(modele);
+  // reseau G = charger_reseau_ancien(modele);
+  tenseur out = G.c[G.nbr_couches - 1].z;
+
+  tenseur t = G.c[0].z;
+  for (int n = 0; n < nb_imgs; ++n) {
+    for (size_t p = 0; p < t.dim[1]; ++p) {
+      for (size_t i = 0; i < t.dim[2]; ++i) {
+        for (size_t j = 0; j < t.dim[3]; ++j) {
+          float tx = ((float)n) / (nb_imgs-1);
+          float val = tx * e1[i] + (1 - tx) * e2[i];
+          t_set(t, 0, p, i, j, val);
+        }
+      }
+    }
+
+    propagation_avant(G, 1);
+    char filename[256];
+    snprintf(filename, sizeof filename, "%s_%04d.png", prefix, n);
+    if (save_png(out, 0, filename) == 0)
+      printf("Image %d sauvegardée dans %s\n", n, filename);
+  }
+}
+
+// int main() { generer_fondu("./generateur.backup/generateur.backup60k.cnn", 10, "./img"); }
