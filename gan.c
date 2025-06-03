@@ -61,14 +61,14 @@ int int_of_string(char *s) {
 }
 
 #define TAILLE_IMAGE 28
-#define NB_EPOCHS 2
+#define NB_EPOCHS 1
 
 int main(int argc, char *argv[]) {
   reseau D;
   reseau G;
 
-  char *ch_detecteur = "detecteur1.cnn";
-  char *ch_generateur = "generateur1.cnn";
+  char *ch_detecteur = "detecteur5.cnn";
+  char *ch_generateur = "generateur5.cnn";
 
   int saut_fichier = 0;
   if (argc == 1) {
@@ -161,7 +161,7 @@ int main(int argc, char *argv[]) {
 
   /* ------------------- Entraînement ------------------------*/
 
-  FILE *trainf = fopen(MNIST_T1, "r");
+  FILE *trainf = fopen(MNIST_T5, "r");
 
   if (!trainf) {
     perror("Ouverture train");
@@ -216,22 +216,20 @@ int main(int argc, char *argv[]) {
           if (c % 10 == 0) {
             c = 0;
             char prefix[25];
-            snprintf(prefix, sizeof prefix, "./generation1/%zu", total);
-
+            snprintf(prefix, sizeof prefix, "./generation5/%zu", total);
+            sauver_reseau(D, ch_detecteur);
+            sauver_reseau(G, ch_generateur);
             generer_images(ch_generateur, 5, prefix);
-            sauver_reseau(D,ch_detecteur);
-            sauver_reseau(G,ch_generateur);
           }
           D.gel = true;
 
-          for (int k = 0; k < t_gen*2; k++) {
+          for (int k = 0; k < t_gen * 2; k++) {
             for (int n = 0; n < BATCH_SIZE; n++) {
               generer_bruit(G.c[0].z, n);
               y[n][0] = 0.9;
             }
 
             propagation_avant(G, -1);
-
 
             // on place l'image obtenue dans D:
             for (int n = 0; n < BATCH_SIZE; n++) {
@@ -242,7 +240,6 @@ int main(int argc, char *argv[]) {
                 }
               }
             }
-            
 
             propagation_avant(D, -1);
             retropropagation(D, ALPHA, BETA1, BETA2, y, NULL);
@@ -282,6 +279,7 @@ int main(int argc, char *argv[]) {
     }
     printf("\nFin epoch %zu – %zu images traitées\n", epoch + 1, total);
   }
+
   fclose(trainf);
   fclose(graphf);
   for (int i = 0; i < BATCH_SIZE; i++) {
